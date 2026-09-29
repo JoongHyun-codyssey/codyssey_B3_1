@@ -1,0 +1,27 @@
+# SSH 개인키
+*.pem
+*.key
+*.ppk
+id_rsa
+id_ed25519
+
+# 환경변수 및 비밀 설정
+.env
+.env.*
+!.env.example
+secrets/
+
+# AWS 로컬 인증 설정
+.aws/
+
+# 로그 및 임시 파일
+*.log
+*.tmp
+
+# 운영체제 파일
+.DS_Store
+Thumbs.db
+
+# 에디터 개인 설정
+.vscode/
+.idea/
