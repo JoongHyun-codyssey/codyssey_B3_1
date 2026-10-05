@@ -1,337 +1,236 @@
 # AWS 기반 웹 서비스 인프라 구축
 
-> 작성 중인 제출용 초안입니다. `[입력]`을 실제 값으로 수정하고, 스크린샷을 지정된 경로에 추가한 뒤 실제 검증한 항목만 완료 처리합니다. 아래 이미지 경로는 촬영할 증빙의 자리이며, 아직 실제 결과가 첨부된 상태는 아닙니다.
+서울 리전에서 VPC와 Public Subnet을 만들고 EC2에 Nginx를 설치하여 외부 브라우저 접속을 확인한 실습입니다. 네트워크 구성, 접근 제어, HTTP 응답, Nginx 장애 진단과 재시작, 리소스 정리 결과를 실제 스크린샷에 연결했습니다.
 
-## 1. 프로젝트 소개
+실습 기록일은 **2026년 10월 5일(KST)**입니다. 아래 구성과 주소는 실습 당시 기록이며 정리 이후의 운영 서비스 주소가 아닙니다. EC2 정리 화면은 `종료 중`까지 확인됩니다. IAM의 작업 목록은 사용자 제공 내용으로 보완했으며 대상 리소스와 조건 범위는 추가 확인이 필요합니다.
 
-AWS에서 VPC 기반의 격리된 네트워크를 구성하고, Public Subnet에 EC2와 Nginx를 배포하여 외부에서 접속 가능한 웹 서비스를 구축하는 실습입니다.
+- 구성 내용을 확인할 때: [프로젝트 구성 설명](docs/project-explanation.md)
+- 전체 사진을 순서대로 볼 때: [증거 사진 목록](docs/evidence-index.md)
+- IAM 권한: [작업별 권한 설명과 원문](docs/iam-permissions.md)
+- 운영 기록: [트러블슈팅 보고서](docs/troubleshooting.md), [리소스 정리 체크리스트](docs/cleanup-checklist.md)
 
-보안 그룹으로 네트워크 접근을 제한하고, IAM 최소권한으로 AWS 리소스 관리 권한을 제한합니다. 통신 또는 권한 오류는 증상과 로그를 근거로 분석하며, 실습 종료 후 생성한 리소스를 정리합니다.
+## 1. 프로젝트 소개와 실제 구성
 
-### 실습 정보
+인터넷에서 접근할 수 있는 웹 서버를 직접 구성하고 요청이 서버까지 도달하기 위해 필요한 네트워크 경로와 보안 설정을 검증했습니다. 웹 페이지는 EC2의 Nginx가 제공합니다. 저장소의 `main.py`는 `hello world` 출력 예제이며 이번 웹 서비스의 실행 프로그램은 아닙니다.
 
-| 항목 | 구성 / 기록 |
+| 항목 | 스크린샷에서 확인한 값 |
 | --- | --- |
-| 작성자 | [입력] |
-| 실습 일시 | [입력, KST] |
-| 리전 | 서울 `ap-northeast-2` |
-| IAM 사용자 또는 Role | [입력, 루트 계정 사용 안 함] |
-| VPC / CIDR | [입력] / 예: `10.0.0.0/16` |
-| Public Subnet / CIDR | [입력] / 예: `10.0.1.0/24` |
-| 가용 영역 | [입력] |
-| EC2 인스턴스 ID / 유형 | [입력] / [계정의 프리 티어 적용 여부를 확인한 micro 유형] |
-| 운영체제 | [Ubuntu LTS 또는 Amazon Linux의 실제 버전 입력] |
-| EBS | [유형 및 크기 입력, 8~10 GiB 수준] |
-| 웹 서버 | Nginx [버전 입력] |
-| 키페어 이름 | [입력, 개인키 파일은 제출하지 않음] |
-| 퍼블릭 IPv4 | [입력] |
-| 외부 접속 검증 방식 | A — 브라우저에서 `http://<퍼블릭IP>` 접속 |
-| 현재 리소스 상태 | [실습 중 / 정리 완료] |
-
-※ CIDR은 설계 예시입니다. 실제 구성에 맞게 수정합니다. 프리 티어 적용 여부와 사용량은 본인 계정에서 확인하고, 확인 일시 및 내용을 기록합니다: [입력].
+| 실습 일자 / 리전 | 2026-10-05 KST / 서울 `ap-northeast-2` |
+| IAM 사용자 / 연결 정책 | `aws-mission-IAM` / 인라인 정책 `aws-mission-policy` |
+| VPC | `aws-mission-vpc` / `vpc-0d72ca45b221845d4` / `10.0.0.0/16` |
+| Public Subnet | `aws-mission-subnet` / `subnet-0df38aa7d67f673c6` / `10.0.1.0/24` |
+| 가용 영역 | `ap-northeast-2a` |
+| Internet Gateway | `aws-mission-igw` / `igw-0b7e6690e130b4b51` |
+| Route Table | `aws-mission-rt` / `rtb-0bebab9858be85feb` |
+| EC2 | `aws-mission-ec2` / `i-054eeabf8b19481d9` / `t3.micro` |
+| OS / AMI | Ubuntu 26.04 LTS / `ami-0bc151a94289adb52` |
+| 스토리지 생성 설정 | EBS `gp3`, `8 GiB`, 종료 시 삭제 설정. 실제 볼륨 ID는 화면에 없음 |
+| 웹 서버 | Nginx `1.28.3` — HTTP 응답 헤더 기준 |
+| 키페어 | `aws-mission-key` — 개인키는 제출 대상에서 제외 |
+| 실습 당시 공인 / 사설 IPv4 | `3.36.126.94` / `10.0.1.106` |
+| Security Group | `aws-mission-sg` / `sg-04bf96b2f2a29e49a` |
+| 외부 검증 방식 | 로컬 Chrome에서 `http://3.36.126.94` 접속 |
 
 ## 2. 아키텍처
 
-![VPC, Public Subnet, Internet Gateway, EC2, Security Group 및 외부 요청 흐름](/docs/architecture.png)
+![실제 증빙을 반영한 AWS VPC, Public Subnet, EC2와 Nginx 아키텍처](docs/architecture.png)
 
-> 제출 전 실제 구성에 맞는 `docs/architecture.png`를 추가합니다. PDF로 제출한다면 위 이미지를 `[아키텍처 다이어그램](docs/architecture.pdf)` 링크로 변경합니다.
+그림 파일: [PNG](docs/architecture.png) · [수정 가능한 SVG](docs/architecture.svg)
 
-### 구성 요소의 역할
-
-| 구성 요소 | 역할 및 확인 사항 |
+| 구성 요소 | 이 실습에서 맡은 역할 |
 | --- | --- |
-| VPC | 서비스에 사용할 논리적으로 격리된 네트워크 범위 |
-| Public Subnet | EC2가 배치되는 VPC 내부 IP 대역. 연결된 Route Table에 Internet Gateway 경로 구성 |
-| Route Table | Subnet 트래픽의 목적지별 경로 결정. `0.0.0.0/0 → Internet Gateway` 확인 |
-| Internet Gateway | VPC와 인터넷 간 통신 경로 제공 |
-| EC2 | 퍼블릭 IPv4를 통해 접근하는 Nginx 실행 서버 |
-| Security Group | EC2에 허용할 네트워크 트래픽 제한 |
-| IAM | AWS API 및 콘솔에서 수행할 리소스 관리 작업의 권한 제한 |
+| VPC | 서비스에 사용할 가상 네트워크 범위 `10.0.0.0/16` |
+| Public Subnet | EC2가 배치된 `10.0.1.0/24` 대역. 연결한 Route Table에 IGW 기본 경로가 있음 |
+| Route Table | VPC 내부 통신은 `local`, 인터넷 목적지는 `0.0.0.0/0 → IGW`로 전달 |
+| Internet Gateway | VPC에 연결되어 EC2의 공인 IPv4를 통한 인터넷 통신을 지원 |
+| Security Group | EC2에 연결된 방화벽 규칙. HTTP 80과 제한된 SSH 22 접근 허용 |
+| EC2 + Nginx | HTTP 요청을 처리하고 기본 웹 페이지 및 정적 `/health` 파일 제공 |
+| IAM 사용자 | AWS 콘솔에서 리소스를 구성하는 관리 주체. 웹 요청 경로와 별개 |
 
-외부 HTTP 요청은 EC2의 퍼블릭 IPv4를 목적지로 Internet Gateway를 통해 들어오며, 보안 그룹에서 TCP 80을 허용하면 EC2의 Nginx가 처리합니다. 응답과 인터넷 아웃바운드 통신에는 Subnet에 연결된 Route Table의 Internet Gateway 경로가 사용됩니다.
+외부 사용자는 EC2의 공인 IPv4로 HTTP 요청을 보냅니다. 요청은 Internet Gateway를 거쳐 EC2에 도달하며, 연결된 Security Group이 TCP 80을 허용하면 Nginx가 응답합니다. 응답과 인터넷 아웃바운드 통신에는 Subnet에 연결한 Route Table의 IGW 경로가 사용됩니다.
 
-다이어그램에는 VPC/Subnet 경계, EC2의 퍼블릭 IPv4, EC2에 연결된 보안 그룹, Route Table과 Subnet 연결, Internet Gateway와 VPC 연결을 표시합니다. HTTP 80 요청 흐름과 개인 IP에서 들어오는 SSH 22 관리 흐름도 구분합니다.
+관리자는 개인키를 이용해 SSH 22로 접속합니다. 이 경로는 촬영 당시 개인 공인 IPv4 한 개(`/32`)만 허용했습니다. 그림의 점선은 Route Table 연결 관계와 IAM 관리 관계를 표시합니다.
 
-## 3. 기능 요구사항별 구현 및 스크린샷
-
-모든 스크린샷은 실제 실습 결과를 촬영합니다. 리전·대상 리소스·관련 설정이나 명령 결과가 식별되도록 촬영하며, 비밀번호·액세스 키·개인키는 포함하지 않습니다. 하나의 화면으로 증명이 부족하면 같은 항목에 이미지를 추가합니다.
+## 3. 요구사항별 구현과 증빙
 
 ### 3.1. 네트워크 구성
 
-**구성 내용**
+VPC와 Subnet을 생성하고 Internet Gateway를 해당 VPC에 연결했습니다. 이후 사용자 Route Table에 기본 경로를 추가하고 실습 Subnet을 명시적으로 연결했습니다.
 
-- VPC 1개와 Public Subnet 1개 생성
-- Internet Gateway를 해당 VPC에 연결
-- Public Subnet에 연결된 Route Table에 `0.0.0.0/0 → Internet Gateway` 설정
-- EC2에서 외부 HTTPS 요청 수행
+![VPC 생성 결과와 CIDR](docs/screenshots/vpc/VPC_after.png)
 
-| 확인 항목 | 실제 값 / 결과 |
-| --- | --- |
-| VPC ID / CIDR | [입력] |
-| Subnet ID / CIDR / VPC ID | [입력] |
-| Internet Gateway ID / 연결된 VPC | [입력] |
-| Route Table ID / 연결된 Subnet | [입력] |
-| 기본 경로의 대상 / 상태 | [Internet Gateway ID / 실제 상태 입력] |
-| 인터넷 아웃바운드 요청 | [HTTP 상태 코드 및 검증 일시 입력] |
+![Subnet 상세 정보와 CIDR 및 가용 영역](docs/screenshots/subnet/subnet_info.png)
 
-**증빙 ① VPC와 Subnet 구성**
+![Internet Gateway와 실습 VPC 연결 결과](docs/screenshots/igw/IGW_after_after_connect.png)
 
-VPC의 CIDR, Subnet의 CIDR 및 소속 VPC를 확인할 수 있는 화면입니다.
+![Route Table의 Internet Gateway 기본 경로](docs/screenshots/rt/rt_connect_igw.png)
 
-![VPC 구성 결과](docs/screenshots/01-vpc.png)
+![사용자 Route Table과 실습 Subnet의 명시적 연결](docs/screenshots/rt/rt_connect_subnet.png)
 
-![Public Subnet 구성 결과](docs/screenshots/02-subnet.png)
+Subnet 상세 화면은 생성 직후 기본 Route Table을 보여줍니다. 최종 라우팅 연결은 마지막 화면의 `aws-mission-rt`와 실습 Subnet의 연결을 기준으로 확인했습니다.
 
-**증빙 ② Internet Gateway 연결 및 라우팅**
-
-Internet Gateway의 연결 상태와 대상 VPC, Route Table의 기본 경로 및 Subnet 연결을 확인합니다. 기본 경로가 다른 Subnet의 Route Table에 설정된 것은 아닌지도 확인합니다.
-
-![Internet Gateway 연결 결과](docs/screenshots/03-internet-gateway.png)
-
-![Route Table 기본 경로](docs/screenshots/04-route-table.png)
-
-![Route Table과 Public Subnet 연결](docs/screenshots/05-subnet-association.png)
-
-**증빙 ③ EC2의 인터넷 아웃바운드 통신**
-
-EC2에 SSH로 접속한 터미널에서 실행합니다.
+EC2 터미널에서 외부 HTTPS 요청의 `HTTP/2 200`도 확인했습니다. 응답 헤더의 시각은 **17:33:39 KST**입니다.
 
 ```bash
-curl -I --connect-timeout 10 https://example.com
+curl -I --max-time 15 https://example.com
 ```
 
-기대 결과: 외부 서버의 정상 HTTP 응답 수신. 아래에 실제 명령과 응답이 보이는 화면을 첨부합니다.
+![EC2에서 외부 HTTPS 요청 성공](docs/screenshots/ssh-install_nginx_connect/ssh-outbound.png)
 
-![EC2에서 외부 HTTPS 요청 결과](docs/screenshots/06-outbound.png)
+### 3.2. EC2와 Nginx 배포
 
-### 3.2. 컴퓨트 및 웹 서버 배포
+EC2를 실습 VPC와 Subnet에 배치하고 공인 IPv4를 할당했습니다. OS는 Ubuntu 26.04 LTS, 유형은 `t3.micro`이며 EBS 생성 설정은 `gp3` 8 GiB입니다.
 
-**구성 내용**
+![EC2 상세 정보와 네트워크 배치](docs/screenshots/ec2/ec2_after_info.png)
 
-- Public Subnet에 EC2 1대 생성 및 퍼블릭 IPv4 할당
-- 개인 키페어를 이용한 SSH 접속
-- Nginx 설치 및 실행
-- EC2 내부에서 `http://localhost`의 200 응답 확인
+![EC2 스토리지 생성 설정](docs/screenshots/ec2/ec2_setting_volumn.png)
 
-| 확인 항목 | 실제 값 / 결과 |
-| --- | --- |
-| EC2 ID / 인스턴스 유형 | [입력] |
-| VPC / Subnet ID | [입력] |
-| 퍼블릭 IPv4 | [입력] |
-| AMI / OS 버전 | [입력] |
-| EBS 볼륨 ID / 크기 | [입력] |
-| SSH 접속 결과 | [입력] |
-| Nginx 실행 상태 | [입력] |
-| localhost HTTP 상태 코드 | [입력] |
-
-**증빙 ① EC2 배치 및 스토리지 설정**
-
-실행 상태, 인스턴스 유형, VPC/Subnet ID, 퍼블릭 IPv4가 보이는 상세 화면과 EBS 용량을 첨부합니다.
-
-![EC2 상세 정보](docs/screenshots/07-ec2.png)
-
-![EBS 용량 및 연결 정보](docs/screenshots/08-ebs.png)
-
-**증빙 ② SSH 접속**
-
-다음 명령은 로컬 PC에서 실행합니다. `<...>`는 실제 값으로 치환합니다. 기본 사용자명은 선택한 AMI에서 확인합니다(일반적인 예: Ubuntu는 `ubuntu`, Amazon Linux는 `ec2-user`).
+로컬 PC에서 개인키 권한을 제한한 뒤 Ubuntu 사용자로 SSH 접속했습니다.
 
 ```bash
 chmod 400 <키파일.pem>
-ssh -i <키파일.pem> <사용자명>@<퍼블릭IP>
+ssh -i <키파일.pem> ubuntu@<실습 당시 공인IPv4>
 ```
 
-![SSH 접속 성공 화면](docs/screenshots/09-ssh.png)
+![개인키 파일 권한 설정](docs/screenshots/ssh-install_nginx_connect/aws-file-chmod.png)
 
-**증빙 ③ Nginx 실행 및 내부 HTTP 응답**
+![로컬 PC에서 SSH 접속 성공](docs/screenshots/ssh-install_nginx_connect/aws-connect-terminal.png)
 
-EC2 내부에서 실행합니다.
+![접속한 서버의 사용자 및 OS 확인](docs/screenshots/ssh-install_nginx_connect/ssh-connect.png)
 
-```bash
-nginx -v
-systemctl is-active nginx
-curl -i --connect-timeout 10 http://localhost
-```
+EC2에 Nginx를 설치하고 실행 상태와 내부 HTTP 응답을 확인했습니다.
 
-기대 결과: Nginx 버전, `active`, `HTTP/1.1 200 OK` 및 응답 본문 확인.
+![Nginx 설치 과정](docs/screenshots/ssh-install_nginx_connect/ssh-install-nginx.png)
 
-![Nginx 실행 상태와 localhost 200 응답](docs/screenshots/10-nginx-localhost.png)
+![Nginx active 실행 상태](docs/screenshots/ssh-install_nginx_connect/ssh-nginx-active.png)
 
-### 3.3. 접근 제어 — Security Group
+![localhost의 HTTP 200 응답과 Nginx 헤더](docs/screenshots/ssh-install_nginx_connect/ssh-web-response.png)
 
-**인바운드 설정**
+`localhost` 응답 헤더의 시각은 **17:32:42 KST**입니다. 서버 내부의 웹 서버 실행과 응답을 확인한 증거이며 외부 접근은 3.5절의 브라우저 화면으로 별도 확인했습니다.
 
-| 용도 | 프로토콜 | 포트 | 허용 소스 |
+### 3.3. Security Group 접근 제어
+
+| 방향 | 프로토콜 / 포트 | 허용 대상 | 용도 |
 | --- | --- | --- | --- |
-| 웹 서비스 | TCP | 80 | `0.0.0.0/0` |
-| SSH 관리 접속 | TCP | 22 | `[개인 공인 IPv4]/32` 또는 과제에서 지정한 IP 대역 |
+| 인바운드 | TCP 80 | `0.0.0.0/0` | 외부 웹 접속 |
+| 인바운드 | TCP 22 | 촬영 당시 개인 공인 IPv4 `/32` | 관리자 SSH 접속 |
+| 아웃바운드 | 모든 트래픽 | `0.0.0.0/0` | 패키지 설치 및 외부 통신 |
 
-- 보안 그룹 ID: [입력]
-- 보안 그룹이 연결된 EC2 ID: [입력]
-- SSH 허용 소스의 실제 값: [입력]
-- 아웃바운드 규칙 및 설정 이유: [입력]
-- 전체 포트 `0–65535`를 `0.0.0.0/0`에 허용하는 인바운드 규칙 존재 여부: [없음 확인 후 입력]
+EC2 보안 탭에서 `aws-mission-sg`가 실제 연결되었고 위 규칙이 적용되었음을 확인했습니다. 표시된 인바운드 규칙은 HTTP와 SSH 두 개입니다.
 
-**증빙 ① 전체 인바운드 규칙**
+![EC2에 연결된 보안 그룹 및 최종 인바운드와 아웃바운드 규칙](docs/screenshots/ec2/ec2_after_sg.png)
 
-HTTP 80의 전체 허용과 SSH 22의 소스 제한을 확인합니다. 불필요한 규칙이 없는지 확인할 수 있도록 전체 규칙을 촬영합니다.
+생성 및 편집 과정은 [인바운드 설정](docs/screenshots/sg/sg_setting_inbound.png), [아웃바운드 설정](docs/screenshots/sg/sg_setting_outbound.png)에 있습니다. 최종 적용 여부는 위 EC2 보안 탭 화면을 근거로 삼았습니다.
 
-![보안 그룹 인바운드 규칙](docs/screenshots/11-sg-inbound.png)
+### 3.4. IAM 사용자와 관리 권한
 
-**증빙 ② EC2 연결 및 아웃바운드 규칙**
+별도 IAM 사용자 `aws-mission-IAM`을 생성하고 해당 사용자로 콘솔에 접속했습니다. 사용자에게 인라인 정책 `aws-mission-policy` 한 개가 연결되어 있습니다.
 
-규칙을 설정한 보안 그룹이 실제 EC2에 연결되어 있는지 확인합니다. EC2에 여러 그룹이 연결되어 있다면 모든 그룹의 허용 규칙을 함께 확인합니다.
+![IAM 사용자 생성](docs/screenshots/iam/IAM_user.png)
 
-![EC2에 연결된 보안 그룹](docs/screenshots/12-sg-association.png)
+![IAM 사용자로 로그인하여 서울 리전 선택](docs/screenshots/iam/IAM_seoul.png)
 
-![보안 그룹 아웃바운드 규칙](docs/screenshots/13-sg-outbound.png)
+![IAM 사용자와 인라인 정책 연결](docs/screenshots/iam/IAM_policy.png)
 
-### 3.4. IAM 최소권한
+정책에 사용한 **36개 `Action` 항목**은 사용자가 제공한 목록으로 기록했습니다. 전체 목록과 작업별 설명은 [IAM 권한 문서](docs/iam-permissions.md), 원문을 보존한 JSON 조각은 [iam-actions.json](docs/iam-actions.json)에 있습니다. 위 사진은 정책 연결의 증거이며, 작업 목록의 출처는 사용자 제공 내용입니다.
 
-**적용 원칙**
+| 권한 분류 | 포함된 작업 | 실습 용도 |
+| --- | --- | --- |
+| 조회 | `ec2:Describe*`, `ec2:GetSecurityGroupsForVpc` | EC2·네트워크 상태 및 VPC의 보안 그룹 조회 |
+| 네트워크 구성 | VPC·Subnet 생성, 속성 변경, 삭제 / IGW 생성·연결·분리·삭제 | 서비스 네트워크 구축과 정리 |
+| 라우팅 | Route Table 생성·연결·연결 해제·삭제 / Route 생성·교체·삭제 | 인터넷 기본 경로 설정과 정리 |
+| 보안 그룹 | 그룹 생성·삭제, 인바운드·아웃바운드 규칙 추가·제거·수정 | HTTP·SSH 접근 규칙 관리 |
+| EC2·키페어 | 키페어 생성·삭제, 인스턴스 생성·시작·중지·재부팅·종료 | SSH 준비와 서버 수명주기 관리 |
+| EBS·태그 | 볼륨 삭제, 태그 생성·삭제 | 실습 스토리지와 리소스 이름·표식 정리 |
 
-- 별도 IAM 사용자 또는 Role로 실습 수행
-- EC2/VPC/Security Group 등의 생성·조회·태그·연결·수정·정리에 필요한 작업만 허용
-- 필요에 따라 리전, 리소스, 태그 조건으로 권한 범위 제한
-- 실습과 무관한 S3/RDS 등 서비스 권한 부여하지 않음
-- `AdministratorAccess` 부여하지 않음
+`ec2:Describe*`는 이름이 `Describe`로 시작하는 EC2 작업을 포함하는 와일드카드입니다. 제공한 목록은 모두 `ec2:` 작업이지만 실제 정책의 `Effect`, `Resource`, 선택 항목인 `Condition`은 아직 제공되지 않았습니다. 따라서 대상 리소스·리전·태그 제한과 다른 정책을 통한 권한까지는 추가 확인해야 합니다. 전체 최소권한 검증은 해당 범위를 확인한 뒤 판단할 수 있습니다. [AWS Action 문서](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_action.html), [AWS Condition 문서](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition.html)
 
-| 확인 항목 | 실제 설정 |
+Security Group은 서버에 도달하는 트래픽을 제어하고 IAM은 AWS 리소스를 관리하는 주체의 권한을 제어합니다. EC2 보안 탭에는 IAM Role이 연결되지 않은 것으로 표시됩니다.
+
+### 3.5. 외부 접속과 health 응답 검증
+
+**외부 검증은 A 방식인 브라우저 접속으로 확인했습니다.** 로컬 Chrome에서 `http://3.36.126.94`로 접속했을 때 Nginx 기본 페이지가 표시됩니다. 브라우저 사진에는 정확한 촬영 시각이 표시되지 않습니다.
+
+![외부 PC 브라우저에서 공인 IPv4의 Nginx 페이지 접속 성공](docs/screenshots/ssh-install_nginx_connect/web-connect-public.png)
+
+추가로 EC2 내부에서 `/health`의 `200 OK`와 본문 `OK`를 확인했습니다. `/health`는 `/var/www/html/health`에 만든 정적 파일이며 애플리케이션이나 데이터베이스의 상태를 검사하지는 않습니다.
+
+![EC2 내부 localhost health의 200 OK 및 OK 응답](docs/screenshots/ssh-install_nginx_connect/ssh-%3Alocalhost%3Ahealth-ok.png)
+
+![EC2 내부에서 공인 IPv4 health의 200 OK 및 OK 응답](docs/screenshots/ssh-install_nginx_connect/ssh-%3ApublicIP%3Aheatlh-ok.png)
+
+| 검증 | 위치 | 확인 결과 / 응답 헤더의 시각 |
+| --- | --- | --- |
+| 기본 페이지 | 외부 PC Chrome | Nginx 기본 페이지 표시 / 사진에 시각 없음 |
+| `http://localhost/health` | EC2 터미널 | HTTP 200, `OK` / 17:35:16 KST |
+| `http://3.36.126.94/health` | EC2 터미널 | HTTP 200, `OK` / 17:36:20 KST |
+
+공인 IP를 호출한 터미널의 프롬프트도 EC2이므로 이 화면을 외부 PC의 curl 검증으로 분류하지 않았습니다. [브라우저에서 다운로드한 health 파일 화면](docs/screenshots/ssh-install_nginx_connect/web-connect-%3Ahealth-ok_check.png)은 본문 `OK`의 보조 자료입니다.
+
+### 3.6. 리소스 정리와 비용 확인
+
+상세 상태와 각 삭제 증거는 [리소스 정리 체크리스트](docs/cleanup-checklist.md)에 연결했습니다.
+
+| 대상 | 사진으로 확인한 상태 |
 | --- | --- |
-| IAM 사용자 또는 Role 이름 | [입력] |
-| 연결한 정책 이름 | [입력] |
-| 허용한 작업과 이유 | [실제 Action과 실습 용도 입력] |
-| 리소스 / 조건 제한 | [실제 Resource 및 Condition 입력] |
-| `Resource: "*"`가 필요한 작업과 이유 | [사용했다면 입력, 없으면 해당 없음] |
-| 사용자 직접 정책·그룹 정책 또는 Role 정책 검토 | [입력] |
-| 관리자 및 무관 서비스 권한 부재 확인 | [입력] |
+| EC2 | 종료 요청 처리 및 `종료 중` 상태. 최종 `terminated` 화면은 없음 |
+| EBS | 서울 리전 볼륨 목록에서 볼륨 없음 |
+| Internet Gateway / Route Table / Subnet / VPC | 각 실습 리소스 삭제 성공 메시지 |
+| Security Group | 삭제 후 목록에 실습 SG가 없고 default SG만 남음 |
+| Elastic IP 및 기타 추가 리소스 | 해당 목록 증거가 없어 생성·정리 여부 추가 확인 필요 |
 
-**실제 적용 정책**
+![EC2 종료 요청 후 종료 중 상태](docs/screenshots/cleanup/ec2-close.png)
 
-아래 영역에 실제 적용한 IAM 정책 JSON을 붙여 넣습니다. 정책이 여러 개라면 모두 기록합니다.
+![정리 후 EBS 볼륨 없음](docs/screenshots/cleanup/cleanup-ebs.png)
 
-```text
-[실제 적용한 정책 JSON 입력]
-```
+![실습 VPC 삭제 결과](docs/screenshots/cleanup/vpc-delete.png)
 
-**증빙 ① 사용 주체와 연결 정책**
+2026년 10월 예상 청구서는 **2026-10-05 18:24:18 KST** 갱신 기준 `USD 0.00`으로 표시됩니다. 크레딧 화면은 총 잔액 `US$120.00`을 보여줍니다. 집계 시점의 표시값으로 기록하며 각 리소스의 정리 상태는 위 삭제 증거를 기준으로 판단했습니다.
 
-IAM 사용자 또는 Role 이름과 연결된 정책을 촬영합니다. 사용자에게 그룹을 통해 부여된 권한이 있으면 그룹 정책도 함께 첨부합니다.
+![2026년 10월 예상 청구서: USD 0.00](docs/screenshots/billing/billing-credits.png)
 
-![IAM 사용자 또는 Role 및 연결 정책](docs/screenshots/14-iam-principal.png)
+![크레딧 잔액: US$120.00](docs/screenshots/billing/billing-october.png)
 
-**증빙 ② 정책의 허용 범위**
-
-정책의 Action, Resource, Condition을 읽을 수 있도록 촬영합니다. 정책 이름만으로는 최소권한 적용을 입증할 수 없으므로 정책 내용도 첨부합니다.
-
-![IAM 정책 내용](docs/screenshots/15-iam-policy.png)
-
-Security Group은 서버에 도달하는 네트워크 트래픽을 제어하고, IAM은 AWS 리소스를 조회·생성·삭제하는 주체의 권한을 제어합니다.
-
-### 3.5. 외부 접속 검증
-
-**선택 방식: A — 브라우저 접속**
-
-| 항목 | 검증 기록 |
-| --- | --- |
-| 접속 URL | `http://[실제 퍼블릭IP]` |
-| 검증 일시 | [입력, KST] |
-| 접속 환경 | [로컬 PC 브라우저 등 입력] |
-| 기대 결과 | Nginx 기본 페이지 또는 직접 작성한 웹 페이지 정상 표시 |
-| 실제 결과 | [입력] |
-
-EC2 내부의 `localhost`가 아닌, 외부 PC의 브라우저에서 퍼블릭 IPv4로 접속합니다. 주소창의 URL과 정상 표시된 페이지가 함께 보이도록 촬영합니다.
-
-![외부 브라우저에서 웹 서비스 접속 결과](docs/screenshots/16-external-access.png)
-
-> B 방식을 선택한다면 이 절을 `GET http://<퍼블릭IP>/health` 검증으로 변경합니다. `/health`가 실제로 200과 고정 응답을 반환하도록 구현한 뒤 외부 PC에서 `curl -i http://<퍼블릭IP>/health`를 실행하고 명령·상태 코드·본문을 촬영합니다. A 방식만 제출한다면 `/health` 구현은 필수가 아닙니다.
-
-### 3.6. 운영 안정성 및 리소스 정리
-
-생성 시점부터 리소스 ID를 기록하고, 접속 증빙을 확보한 뒤 실습 리소스를 정리합니다. 아래 표는 계획이며, 실제 확인 전에는 완료로 표시하지 않습니다.
-
-| 정리 대상 | 리소스 ID / 미생성 여부 | 완료 기준 | 확인 일시 / 상태 | 증빙 |
-| --- | --- | --- | --- | --- |
-| EC2 | [입력] | `terminated` 확인 | [입력] | 17 |
-| EBS | [입력] | 실습 볼륨 및 잔여 미사용 볼륨 삭제 확인 | [입력] | 18 |
-| Elastic IP | [입력] | 할당했다면 Release, 미생성이면 할당 없음 확인 | [입력] | 19 |
-| NAT Gateway | [입력] | 생성했다면 삭제, 미생성이면 없음 확인 | [입력] | [해당 시 추가] |
-| ELB/ALB | [입력] | 생성했다면 삭제, 미생성이면 없음 확인 | [입력] | [해당 시 추가] |
-| RDS | [입력] | 생성했다면 삭제 및 관련 잔여 리소스 확인 | [입력] | [해당 시 추가] |
-| Internet Gateway | [입력] | VPC에서 분리 후 삭제 | [입력] | 20 |
-| Subnet / 사용자 생성 Route Table / Security Group | [입력] | 의존 관계 해제 후 실습 리소스 삭제 | [입력] | [해당 화면 추가] |
-| VPC | [입력] | 실습 VPC 삭제 | [입력] | 21 |
-| 기타 실습 생성 리소스 | [키페어, IAM 정책 등 입력] | 사용 종료 및 정리 여부 기록 | [입력] | [해당 시 추가] |
-
-EC2는 단순 `stopped` 상태가 아니라 `terminated` 상태를 확인합니다. 종료 후 EBS 삭제 여부를 별도로 확인하고, 할당한 Elastic IP가 있다면 해제합니다. 이후 네트워크 리소스의 의존 관계를 해제하고 VPC를 삭제합니다. 기존의 다른 프로젝트 리소스는 삭제하지 않습니다.
-
-**정리 결과 스크린샷**
-
-삭제 전 기록한 리소스 ID와 삭제 후 목록을 대조할 수 있도록 촬영합니다. 목록의 검색 필터와 리전을 확인하여 잘못된 필터 때문에 리소스가 없는 것처럼 보이지 않도록 합니다.
-
-![EC2 종료 상태](docs/screenshots/17-cleanup-ec2.png)
-
-![EBS 볼륨 정리 결과](docs/screenshots/18-cleanup-ebs.png)
-
-![Elastic IP 해제 또는 미할당 확인](docs/screenshots/19-cleanup-eip.png)
-
-![Internet Gateway 삭제 결과](docs/screenshots/20-cleanup-igw.png)
-
-![VPC 삭제 결과](docs/screenshots/21-cleanup-vpc.png)
-
-상세 정리 기록: [리소스 정리 체크리스트](docs/cleanup-checklist.md)
-
-Billing 확인 일시 및 내용: [입력]. 비용 표시에는 지연이 있을 수 있으므로 Billing 화면만으로 삭제 완료를 판단하지 않고 각 리소스 상태를 함께 확인합니다.
-
-리소스 정리 완료 후에는 위 서비스 URL로 접속할 수 없습니다. 외부 접속 성공 여부는 정리 전 촬영한 증빙과 검증 일시를 기준으로 확인합니다.
+두 Billing 파일은 이름과 실제 화면 내용이 서로 바뀌어 있어 위 설명은 화면 내용을 기준으로 작성했습니다.
 
 ## 4. 트러블슈팅
 
-상세 보고서: [트러블슈팅 보고서](docs/troubleshooting.md)
+Nginx가 정지된 상황에서 HTTP 연결 실패를 확인하고 서비스 상태와 로그로 원인을 좁혔습니다. EC2에서 공인 주소와 `localhost` 요청이 함께 실패했고 Nginx는 `inactive (dead)`였습니다. 서비스를 다시 시작한 뒤 `active (running)`을 확인했습니다.
 
-최소 1건의 실제 발생 또는 통제된 재현 사례를 작성합니다. 원인 확인을 위해 불필요한 포트를 전체 공개하지 않습니다.
+![Nginx 정지 상태에서 HTTP 요청 실패](docs/screenshots/troubleshooting/troubleshooting-failure.png)
 
-| 단계 | 기록 내용 |
-| --- | --- |
-| 증상 | [요청 URL, 발생 시각, timeout/403/연결 거부 등 실제 증상] |
-| 가설 | [증상의 원인으로 의심한 설정 또는 권한] |
-| 검증 | [확인한 설정, 명령, 로그와 가설 판단 근거] |
-| 조치 | [실제 수정한 항목과 변경 전후 값] |
-| 결과 | [동일 요청 재시도 결과와 검증 시각] |
-| 재발 방지 | [설정 점검 항목, 문서화 등 구체적인 예방 조치] |
+![Nginx 재시작 후 active 상태 복구](docs/screenshots/troubleshooting/troubleshooting-recovered.png)
 
-오류 및 해결 후 화면을 각각 첨부합니다. 서버 요청 로그가 없다면 요청이 서버에 도달하지 않았을 가능성을 검토하되, 로그 부재만으로 원인을 확정하지 않습니다.
+정지 로그의 시각은 **17:45:01 KST**, 재시작 시각은 **17:48:24 KST**입니다. 정지시킨 주체와 의도는 캡처만으로 확인되지 않습니다. 재시작 직후의 HTTP 재검증 화면도 없어 서비스 실행 상태의 복구까지 기록했습니다. 증상 → 가설 → 검증 → 조치 → 결과 → 재발 방지는 [트러블슈팅 보고서](docs/troubleshooting.md)에 정리했습니다.
 
-![트러블슈팅 오류 재현](docs/screenshots/22-troubleshooting-before.png)
-
-![트러블슈팅 검증 및 해결 결과](docs/screenshots/23-troubleshooting-after.png)
-
-## 5. 제출 파일 구성
+## 5. 문서와 증거 파일
 
 | 경로 | 내용 |
 | --- | --- |
-| `README.md` | 실습 구성, 요구사항별 결과, 접속 정보 및 증빙 |
-| `docs/architecture.png` 또는 `docs/architecture.pdf` | 실제 구축한 아키텍처 다이어그램 1장 |
-| `docs/troubleshooting.md` 또는 `docs/troubleshooting.pdf` | 최소 1건의 오류 재현·분석·해결 보고서 |
-| `docs/cleanup-checklist.md` | 리소스별 정리 상태 및 근거 |
-| `docs/screenshots/` | 각 요구사항의 실제 검증 스크린샷 |
+| [README.md](README.md) | 실제 구성과 요구사항별 핵심 증빙 |
+| [docs/architecture.png](docs/architecture.png) | 실제 구성을 반영한 아키텍처 그림 |
+| [docs/architecture.svg](docs/architecture.svg) | 확대 및 수정 가능한 아키텍처 원본 |
+| [docs/project-explanation.md](docs/project-explanation.md) | 구성 요소와 핵심 증거 설명 |
+| [docs/iam-permissions.md](docs/iam-permissions.md) | 사용자 제공 IAM Action 목록과 작업별 역할 |
+| [docs/iam-actions.json](docs/iam-actions.json) | 제공된 36개 Action 항목을 보존한 JSON 조각 |
+| [docs/evidence-index.md](docs/evidence-index.md) | 전체 53개 스크린샷의 단계별 링크와 의미 |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Nginx 정지 원인 확인과 재시작 기록 |
+| [docs/cleanup-checklist.md](docs/cleanup-checklist.md) | 리소스별 정리 상태와 근거 |
+| `docs/screenshots/` | 원본 증거 사진 |
 
-> 위 파일들은 제출할 산출물 목록입니다. 이 README 초안 외의 파일은 별도로 작성·촬영해야 합니다. 스크린샷 번호는 정리용이며, 필수 촬영 장수를 의미하지 않습니다. 필요한 정보가 명확하게 보이면 한 화면을 여러 요구사항의 증빙으로 활용할 수 있습니다.
+## 6. 증빙 확인 결과
 
-## 6. 최종 제출 점검
-
-- [ ] `[입력]` 및 예시 값을 실제 값으로 수정했다.
-- [ ] 서울 리전에서 VPC 1개, Public Subnet 1개, EC2 1대를 구성했다.
-- [ ] Internet Gateway 연결, Route Table 기본 경로, Subnet 연결을 확인했다.
-- [ ] EC2에서 인터넷 아웃바운드 통신을 확인했다.
-- [ ] SSH 접속, Nginx 실행 및 localhost의 200 응답을 확인했다.
-- [ ] HTTP 80은 전체 공개, SSH 22는 개인 IP 또는 지정 대역으로 제한했다.
-- [ ] 불필요한 전체 포트 공개 규칙이 없다.
-- [ ] 루트 계정과 AdministratorAccess를 사용하지 않고 IAM 최소권한을 적용했다.
-- [ ] 외부 접속 방식, 실제 URL, 검증 일시와 스크린샷을 기록했다.
-- [ ] 각 기능 요구사항의 스크린샷을 추가하고 이미지 경로를 확인했다.
-- [ ] 아키텍처 다이어그램을 PNG 또는 PDF로 제출했다.
-- [ ] 트러블슈팅 보고서에 증상 → 가설 → 검증 → 조치 → 결과 → 재발 방지를 기록했다.
-- [ ] EC2, EBS, Elastic IP, Internet Gateway, VPC 및 추가 생성 리소스를 정리했다.
-- [ ] 리소스 정리 체크리스트에 완료 근거를 남겼다.
-- [ ] 비밀번호·액세스 키·개인키 파일이 제출물에 포함되지 않았다.
+- [x] 서울 리전의 VPC, Public Subnet, EC2 구성 확인
+- [x] Internet Gateway 연결, 기본 경로, 최종 Subnet 연결 확인
+- [x] SSH 접속, Nginx 실행, 내부 HTTP 200, 외부 HTTPS 응답 확인
+- [x] HTTP 80 전체 공개 및 SSH 22 개인 IP 제한의 최종 적용 확인
+- [x] 별도 IAM 사용자 로그인 및 인라인 정책 연결 확인
+- [x] 사용자 제공 IAM Action 목록과 작업별 용도 기록
+- [x] 외부 브라우저의 Nginx 접속 성공 확인
+- [x] 실제 파일 경로로 증빙 연결 및 아키텍처·설명 문서 작성
+- [x] Nginx 장애 상태, 로그, 재시작 기록
+- [x] EBS 목록과 네트워크 리소스 삭제 증거 기록
+- [ ] IAM 정책의 Effect·Resource·Condition 및 다른 권한 경로로 전체 범위 확인
+- [ ] EC2의 최종 `terminated` 상태 추가 확인
+- [ ] 장애 재시작 직후 HTTP 응답 재검증 증거 확인
+- [ ] Elastic IP 및 기타 추가 리소스의 미생성 또는 정리 상태 추가 확인

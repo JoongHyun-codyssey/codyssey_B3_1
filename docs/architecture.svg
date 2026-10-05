@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1300" viewBox="0 0 1800 1300" role="img" aria-labelledby="title description">
+<title id="title">AWS 웹 서비스 인프라 아키텍처</title>
+<desc id="description">서울 리전 VPC 10.0.0.0/16, Public Subnet 10.0.1.0/24, Internet Gateway, Route Table, 보안 그룹, 공인 IPv4 3.36.126.94의 EC2 Nginx, HTTP와 SSH 요청 및 IAM 관리 관계를 표현한 실제 증빙 기반 구성도.</desc>
+<rect x="0" y="0" width="1800" height="1300" rx="0" fill="#f5f7fc" stroke="none" stroke-width="2"/>
+<rect x="40" y="43" width="8" height="72" rx="4" fill="#2563eb" stroke="none" stroke-width="2"/>
+<text x="70" y="79" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="42" font-weight="700">AWS 웹 서비스 인프라 아키텍처</text>
+<text x="72" y="122" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="24" font-weight="400">실제 구축 증빙 기준  ·  2026.10.05  ·  서울 리전의 EC2 + Nginx 단일 서버</text>
+<rect x="410" y="180" width="1340" height="830" rx="24" fill="#ffffff" stroke="#c4cedd" stroke-width="2"/>
+<text x="440" y="229" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="25" font-weight="700">AWS 서울 리전</text>
+<text x="637" y="231" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="23" font-weight="400">ap-northeast-2</text>
+<rect x="440" y="265" width="1280" height="715" rx="20" fill="#fbfdff" stroke="#a9bdd8" stroke-width="2"/>
+<text x="465" y="307" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="25" font-weight="700">VPC  ·  aws-mission-vpc</text>
+<text x="800" y="309" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="23" font-weight="400">10.0.0.0/16</text>
+<rect x="810" y="350" width="885" height="570" rx="20" fill="#eef5ff" stroke="#8eb2e4" stroke-width="2"/>
+<text x="838" y="399" fill="#2563eb" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="27" font-weight="700">Public Subnet  ·  aws-mission-subnet</text>
+<text x="838" y="432" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="22" font-weight="400">10.0.1.0/24  |  ap-northeast-2a</text>
+<rect x="850" y="450" width="800" height="425" rx="18" fill="#effaf7" stroke="#69b6a4" stroke-width="2"/>
+<text x="878" y="491" fill="#008774" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="25" font-weight="700">EC2에 연결된 Security Group  ·  aws-mission-sg</text>
+<rect x="475" y="505" width="280" height="170" rx="18" fill="#eef4ff" stroke="#2563eb" stroke-width="3"/>
+<text x="499" y="545" fill="#2563eb" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="27" font-weight="700">Internet Gateway</text>
+<text x="499" y="591" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="23" font-weight="400">aws-mission-igw</text>
+<text x="499" y="631" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="19" font-weight="400">실습 VPC에 연결 · Attached</text>
+<rect x="475" y="745" width="285" height="185" rx="18" fill="#fff8ed" stroke="#ddba80" stroke-width="2"/>
+<text x="499" y="789" fill="#ad6911" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="26" font-weight="700">Route Table</text>
+<text x="499" y="823" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="21" font-weight="400">aws-mission-rt</text>
+<text x="499" y="864" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="21" font-weight="400">10.0.0.0/16 → local</text>
+<text x="499" y="903" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="21" font-weight="400">0.0.0.0/0 → IGW</text>
+<polyline points="617,745 617,675" fill="none" stroke="#ad6911" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="10 8"/>
+<polygon points="617,675 610.0,690.0 624.0,690.0" fill="#ad6911"/>
+<text x="638" y="723" fill="#ad6911" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="18" font-weight="400">경로 대상</text>
+<polyline points="760,842 785,842 785,910 1000,910" fill="none" stroke="#ad6911" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="10 8"/>
+<text x="808" y="952" fill="#ad6911" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">점선: Route Table과 Subnet의 명시적 연결</text>
+<rect x="1130" y="505" width="465" height="212" rx="18" fill="#ffffff" stroke="#aac8c0" stroke-width="2"/>
+<text x="1154" y="550" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="29" font-weight="700">EC2 + Nginx</text>
+<text x="1154" y="586" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="22" font-weight="400">aws-mission-ec2  ·  t3.micro</text>
+<text x="1154" y="626" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="23" font-weight="400">공인 IPv4  3.36.126.94</text>
+<text x="1154" y="661" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="23" font-weight="400">사설 IPv4  10.0.1.106</text>
+<text x="1154" y="695" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">Ubuntu 26.04 LTS  ·  Nginx 1.28.3</text>
+<polyline points="1363,717 1363,736" fill="none" stroke="#5a6c83" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1130" y="736" width="465" height="45" rx="10" fill="#ffffff" stroke="#c3d9d2" stroke-width="1.5"/>
+<text x="1154" y="766" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="21" font-weight="400">EBS 생성 설정  ·  gp3 8 GiB</text>
+<text x="878" y="820" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="22" font-weight="400">인바운드: TCP 80  0.0.0.0/0   |   TCP 22  관리자 공인 IP/32</text>
+<text x="878" y="856" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="21" font-weight="400">아웃바운드: 모든 트래픽 → 0.0.0.0/0</text>
+<rect x="40" y="450" width="315" height="140" rx="18" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
+<text x="64" y="495" fill="#2563eb" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="27" font-weight="700">외부 사용자</text>
+<text x="64" y="535" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="24" font-weight="400">웹 브라우저</text>
+<text x="64" y="574" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="22" font-weight="400">http://3.36.126.94</text>
+<rect x="40" y="690" width="315" height="150" rx="18" fill="#ffffff" stroke="#008774" stroke-width="2"/>
+<text x="64" y="737" fill="#008774" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="27" font-weight="700">관리자 PC</text>
+<text x="64" y="778" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="23" font-weight="400">SSH + 개인 키페어</text>
+<text x="64" y="815" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">허용 소스: 개인 공인 IP /32</text>
+<polyline points="355,520 390,520 390,550 475,550" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="475,550 460.0,543.0 460.0,557.0" fill="#2563eb"/>
+<polyline points="755,550 1130,550" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="1130,550 1115.0,543.0 1115.0,557.0" fill="#2563eb"/>
+<text x="880" y="542" fill="#2563eb" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="22" font-weight="700">HTTP · TCP 80</text>
+<text x="880" y="582" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="19" font-weight="400">기본 페이지 · 정적 /health</text>
+<polyline points="355,765 390,765 390,642 475,642" fill="none" stroke="#008774" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="475,642 460.0,635.0 460.0,649.0" fill="#008774"/>
+<polyline points="755,642 1130,642" fill="none" stroke="#008774" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="1130,642 1115.0,635.0 1115.0,649.0" fill="#008774"/>
+<text x="880" y="633" fill="#008774" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="22" font-weight="700">SSH · TCP 22</text>
+<text x="880" y="685" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">관리자 IP만 허용</text>
+<polyline points="60,894 130,894" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="130,894 115.0,887.0 115.0,901.0" fill="#2563eb"/>
+<text x="145" y="899" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">HTTP / SSH 요청</text>
+<polyline points="60,946 130,946" fill="none" stroke="#ad6911" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="10 8"/>
+<text x="145" y="951" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">연결·관리 관계</text>
+<text x="468" y="1050" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="22" font-weight="400">응답·아웃바운드: EC2 → Subnet Route Table 기본 경로 → IGW → 인터넷</text>
+<rect x="40" y="1110" width="1710" height="125" rx="18" fill="#f5f0fc" stroke="#c9b5e3" stroke-width="2"/>
+<text x="67" y="1153" fill="#7750b6" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="27" font-weight="700">IAM 관리 주체  ·  aws-mission-IAM</text>
+<text x="67" y="1190" fill="#172d4b" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="23" font-weight="400">aws-mission-policy  |  사용자 제공 Action 36개 항목: EC2 조회 · 네트워크 · SG · 인스턴스 관리</text>
+<text x="67" y="1225" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">Effect · Resource · Condition은 미제공: 대상과 조건 범위는 추가 확인 필요  ·  EC2 IAM Role 연결 없음</text>
+<polyline points="1660,1110 1660,1010" fill="none" stroke="#7750b6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="10 8"/>
+<polygon points="1660,1010 1653.0,1025.0 1667.0,1025.0" fill="#7750b6"/>
+<text x="1438" y="1090" fill="#7750b6" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">콘솔 / API 관리</text>
+<text x="42" y="1280" fill="#5a6c83" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif" font-size="20" font-weight="400">실습 당시 구성과 접속 증거를 표현한 그림입니다. 정리 이후의 현재 가동 상태를 의미하지 않습니다.</text>
+</svg>
